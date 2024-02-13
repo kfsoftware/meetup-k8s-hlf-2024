@@ -10,10 +10,14 @@ This workshop is divided in this steps:
 		- [Configure Internal DNS](#configure-internal-dns)
 	- [3. Install Hyperledger Fabric operator](#3-install-hyperledger-fabric-operator)
 		- [Install the Kubectl plugin](#install-the-kubectl-plugin)
-	- [4. Deploy a peer organization](#4-deploy-a-peer-organization)
+	- [4.1 Deploy the first organization organization](#41-deploy-the-first-organization-organization)
 		- [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm)
 		- [Deploy a certificate authority](#deploy-a-certificate-authority)
 		- [Deploy a peer](#deploy-a-peer)
+	- [4.2 Deploy a second peer organization](#42-deploy-a-second-peer-organization)
+		- [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm-1)
+		- [Deploy a certificate authority](#deploy-a-certificate-authority-1)
+		- [Deploy a peer](#deploy-a-peer-1)
 	- [5. Deploy an orderer organization](#5-deploy-an-orderer-organization)
 		- [Create the certification authority](#create-the-certification-authority)
 		- [Register user `orderer`](#register-user-orderer)
@@ -22,12 +26,13 @@ This workshop is divided in this steps:
 		- [Register and enrolling OrdererMSP identity](#register-and-enrolling-orderermsp-identity)
 		- [Register and enrolling Org1MSP identity](#register-and-enrolling-org1msp-identity)
 		- [Create main channel](#create-main-channel)
-	- [7. Join peer to the channel](#7-join-peer-to-the-channel)
+	- [7.1 Join peers from Org1 to the channel](#71-join-peers-from-org1-to-the-channel)
+	- [7.2 Join peers from Org2 to the channel](#72-join-peers-from-org2-to-the-channel)
+		- [Register and enrolling Org1MSP identity](#register-and-enrolling-org1msp-identity-1)
 	- [8. Install a chaincode](#8-install-a-chaincode)
 		- [Prepare connection string for a peer](#prepare-connection-string-for-a-peer)
 		- [Fetch the connection string from the Kubernetes secret](#fetch-the-connection-string-from-the-kubernetes-secret)
-		- [Create metadata file](#create-metadata-file)
-		- [Prepare connection file](#prepare-connection-file)
+		- [Install chaincode](#install-chaincode)
 		- [Check if the chaincode is installed](#check-if-the-chaincode-is-installed)
 	- [9. Deploy chaincode container on cluster](#9-deploy-chaincode-container-on-cluster)
 	- [10. Approve chaincode](#10-approve-chaincode)
@@ -230,7 +235,7 @@ Afterwards, the plugin can be installed with the following command:
 kubectl krew install hlf
 ```
 
-## 4. Deploy a peer organization
+## 4.1 Deploy the first organization organization
 
 ### Environment Variables for AMD and ARM
 
@@ -292,6 +297,72 @@ Check that the peer is deployed and works:
 ```bash
 openssl s_client -connect peer0-org1.localho.st:443
 openssl s_client -connect peer1-org1.localho.st:443
+```
+
+
+## 4.2 Deploy a second peer organization
+
+### Environment Variables for AMD and ARM
+
+```bash
+export PEER_IMAGE=hyperledger/fabric-peer
+export PEER_VERSION=2.5.5
+
+export ORDERER_IMAGE=hyperledger/fabric-orderer
+export ORDERER_VERSION=2.5.5
+
+export CA_IMAGE=hyperledger/fabric-ca
+export CA_VERSION=1.5.7
+```
+
+### Deploy a certificate authority
+
+```bash
+
+export STORAGE_CLASS=local-path # k3d storage class, "standard" for KinD
+kubectl hlf ca create  --image=$CA_IMAGE --version=$CA_VERSION --storage-class=$STORAGE_CLASS --capacity=1Gi --name=org2-ca \
+    --enroll-id=enroll --enroll-pw=enrollpw --hosts=org2-ca.localho.st --istio-port=443
+
+kubectl wait --timeout=180s --for=condition=Running fabriccas.hlf.kungfusoftware.es --all
+```
+
+Check that the certification authority is deployed and works:
+
+```bash
+curl -k https://org2-ca.localho.st:443/cainfo
+```
+
+Register a user in the certification authority of the peer organization (Org2MSP)
+
+```bash
+# register user in CA for peers
+kubectl hlf ca register --name=org2-ca --user=peer --secret=peerpw --type=peer \
+ --enroll-id enroll --enroll-secret=enrollpw --mspid Org2MSP
+
+```
+
+### Deploy a peer 
+
+```bash
+
+kubectl hlf peer create --statedb=leveldb --image=$PEER_IMAGE --version=$PEER_VERSION --storage-class=$STORAGE_CLASS --enroll-id=peer --mspid=Org2MSP \
+        --enroll-pw=peerpw --capacity=5Gi --name=org2-peer0 --ca-name=org2-ca.default \
+        --hosts=peer0-org2.localho.st --istio-port=443
+
+
+kubectl hlf peer create --statedb=leveldb --image=$PEER_IMAGE --version=$PEER_VERSION --storage-class=$STORAGE_CLASS --enroll-id=peer --mspid=Org2MSP \
+        --enroll-pw=peerpw --capacity=5Gi --name=org2-peer1 --ca-name=org2-ca.default \
+        --hosts=peer1-org2.localho.st --istio-port=443
+
+
+kubectl wait --timeout=180s --for=condition=Running fabricpeers.hlf.kungfusoftware.es --all
+```
+
+Check that the peer is deployed and works:
+
+```bash
+openssl s_client -connect peer0-org2.localho.st:443
+openssl s_client -connect peer1-org2.localho.st:443
 ```
 
 ## 5. Deploy an orderer organization
@@ -498,7 +569,7 @@ EOF
 ```
 
 
-## 7. Join peer to the channel
+## 7.1 Join peers from Org1 to the channel
 
 To join the peers from Org1MSP to the channel `demo` we need to create a `FabricFollowerChannel` resource:
 
@@ -538,6 +609,64 @@ EOF
 
 ```
 
+
+## 7.2 Join peers from Org2 to the channel
+
+### Register and enrolling Org1MSP identity
+
+Run this step only if Org2MSP is added to the channel `demo`
+
+```bash
+# register
+kubectl hlf ca register --name=org2-ca --namespace=default --user=admin --secret=adminpw \
+    --type=admin --enroll-id enroll --enroll-secret=enrollpw --mspid=Org2MSP
+
+# enroll
+kubectl hlf identity create --name org2-admin --namespace default \
+    --ca-name org2-ca --ca-namespace default \
+    --ca ca --mspid Org2MSP --enroll-id admin --enroll-secret adminpw
+
+```
+
+
+To join the peers from Org2MSP to the channel `demo` we need to create a `FabricFollowerChannel` resource:
+
+```bash
+
+export IDENT_8=$(printf "%8s" "")
+export ORDERER0_TLS_CERT=$(kubectl get fabricorderernodes ord-node1 -o=jsonpath='{.status.tlsCert}' | sed -e "s/^/${IDENT_8}/" )
+
+kubectl apply -f - <<EOF
+apiVersion: hlf.kungfusoftware.es/v1alpha1
+kind: FabricFollowerChannel
+metadata:
+  name: demo-org2msp
+spec:
+  anchorPeers:
+    - host: org2-peer0.default
+      port: 7051
+    - host: org2-peer1.default
+      port: 7051
+  hlfIdentity:
+    secretKey: user.yaml
+    secretName: org2-admin
+    secretNamespace: default
+  mspId: Org2MSP
+  name: demo
+  externalPeersToJoin: []
+  orderers:
+    - certificate: |
+${ORDERER0_TLS_CERT}
+      url: grpcs://ord-node1.default:7050
+  peersToJoin:
+    - name: org2-peer0
+      namespace: default
+    - name: org2-peer1
+      namespace: default
+EOF
+
+```
+
 ## 8. Install a chaincode
 
 ### Prepare connection string for a peer
@@ -551,27 +680,43 @@ To prepare the connection string, we have to:
 
 ```bash
 
-# This identity will register and enroll the user
+# This identity will register and enroll the user for org1
 kubectl hlf identity create --name org1-admin --namespace default \
     --ca-name org1-ca --ca-namespace default \
     --ca ca --mspid Org1MSP --enroll-id explorer-admin --enroll-secret explorer-adminpw \
     --ca-enroll-id=enroll --ca-enroll-secret=enrollpw --ca-type=admin
 
 
+# This identity will register and enroll the user for org2
+kubectl hlf identity create --name org2-admin --namespace default \
+    --ca-name org2-ca --ca-namespace default \
+    --ca ca --mspid Org2MSP --enroll-id explorer-admin --enroll-secret explorer-adminpw \
+    --ca-enroll-id=enroll --ca-enroll-secret=enrollpw --ca-type=admin
+
+
 kubectl hlf networkconfig create --name=org1-cp \
   -o Org1MSP -o OrdererMSP -c demo \
   --identities=org1-admin.default --secret=org1-cp
+
+# if org2 is installed
+kubectl hlf networkconfig create --name=org2-cp \
+  -o Org2MSP -o OrdererMSP -c demo \
+  --identities=org2-admin.default --secret=org2-cp
 ```
 
 ### Fetch the connection string from the Kubernetes secret
 
 ```bash
 kubectl get secret org1-cp -o jsonpath="{.data.config\.yaml}" | base64 --decode > org1.yaml
+
+# if org2 is installed
+kubectl get secret org2-cp -o jsonpath="{.data.config\.yaml}" | base64 --decode > org2.yaml
 ```
 
-### Create metadata file
+### Install chaincode
 
 ```bash
+
 # remove the code.tar.gz chaincode.tgz if they exist
 rm code.tar.gz chaincode.tgz
 export CHAINCODE_NAME=asset
@@ -582,11 +727,6 @@ cat << METADATA-EOF > "metadata.json"
     "label": "${CHAINCODE_LABEL}"
 }
 METADATA-EOF
-```
-
-### Prepare connection file
-
-```bash
 ## chaincode as a service
 cat > "connection.json" <<CONN_EOF
 {
@@ -606,6 +746,15 @@ kubectl hlf chaincode install --path=./chaincode.tgz \
 
 kubectl hlf chaincode install --path=./chaincode.tgz \
     --config=org1.yaml --language=golang --label=$CHAINCODE_LABEL --user=org1-admin-default --peer=org1-peer1.default
+
+
+# if org2 is installed
+kubectl hlf chaincode install --path=./chaincode.tgz \
+    --config=org2.yaml --language=golang --label=$CHAINCODE_LABEL --user=org2-admin-default --peer=org2-peer0.default
+
+kubectl hlf chaincode install --path=./chaincode.tgz \
+    --config=org2.yaml --language=golang --label=$CHAINCODE_LABEL --user=org2-admin-default --peer=org2-peer1.default
+
 
 ```
 
@@ -642,12 +791,23 @@ kubectl hlf externalchaincode sync --image=kfsoftware/chaincode-external:latest 
 To approve the chaincode definition for org1, run the following command:
 
 ```bash
-export SEQUENCE=1
+export SEQUENCE=3
 export VERSION="1.0"
+export ENDORSEMENT_POLICY="OR('Org1MSP.member')"
+# if org2 is installed
+# export ENDORSEMENT_POLICY="OR('Org1MSP.member', 'Org2MSP.member')"
+
 kubectl hlf chaincode approveformyorg --config=org1.yaml --user=org1-admin-default --peer=org1-peer0.default \
     --package-id=$PACKAGE_ID \
     --version "$VERSION" --sequence "$SEQUENCE" --name=asset \
-    --policy="OR('Org1MSP.member')" --channel=demo
+    --policy="${ENDORSEMENT_POLICY}" --channel=demo
+
+
+kubectl hlf chaincode approveformyorg --config=org2.yaml --user=org2-admin-default --peer=org2-peer0.default \
+    --package-id=$PACKAGE_ID \
+    --version "$VERSION" --sequence "$SEQUENCE" --name=asset \
+    --policy="${ENDORSEMENT_POLICY}" --channel=demo
+
 ```
 
 ## 11. Commit chaincode
@@ -657,7 +817,7 @@ To commit chaincode to the channel, run the following command:
 ```bash
 kubectl hlf chaincode commit --config=org1.yaml --user=org1-admin-default --mspid=Org1MSP \
     --version "$VERSION" --sequence "$SEQUENCE" --name=asset \
-    --policy="OR('Org1MSP.member')" --channel=demo
+    --policy="${ENDORSEMENT_POLICY}" --channel=demo
 ```
 
 ## 12. Invoke a transaction on the channel
@@ -671,6 +831,12 @@ We will use the kubectl plugin to interact with the chaincode. The plugin is a w
 ```bash
 kubectl hlf chaincode invoke --config=org1.yaml \
     --user=org1-admin-default --peer=org1-peer0.default \
+    --chaincode=asset --channel=demo \
+    --fcn=initLedger
+
+# if org2 is installed
+kubectl hlf chaincode invoke --config=org2.yaml \
+    --user=org2-admin-default --peer=org2-peer0.default \
     --chaincode=asset --channel=demo \
     --fcn=initLedger
 
