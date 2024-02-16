@@ -612,7 +612,7 @@ EOF
 
 ## 7.2 Join peers from Org2 to the channel
 
-### Register and enrolling Org1MSP identity
+### Register and enrolling Org2MSP identity
 
 Run this step only if Org2MSP is added to the channel `demo`
 
