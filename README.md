@@ -3,47 +3,47 @@
 This workshop is divided in this steps:
 
 - [Workshop to create your first HLF network](#workshop-to-create-your-first-hlf-network)
-	- [1. Create kubernetes cluster](#1-create-kubernetes-cluster)
-		- [Using K3D](#using-k3d)
-		- [Using KinD](#using-kind)
-	- [2. Install and configure Istio](#2-install-and-configure-istio)
-		- [Configure Internal DNS](#configure-internal-dns)
-	- [3. Install Hyperledger Fabric operator](#3-install-hyperledger-fabric-operator)
-		- [Install the Kubectl plugin](#install-the-kubectl-plugin)
-	- [4.1 Deploy the first organization organization](#41-deploy-the-first-organization-organization)
-		- [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm)
-		- [Deploy a certificate authority](#deploy-a-certificate-authority)
-		- [Deploy a peer](#deploy-a-peer)
-	- [4.2 Deploy a second peer organization](#42-deploy-a-second-peer-organization)
-		- [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm-1)
-		- [Deploy a certificate authority](#deploy-a-certificate-authority-1)
-		- [Deploy a peer](#deploy-a-peer-1)
-	- [5. Deploy an orderer organization](#5-deploy-an-orderer-organization)
-		- [Create the certification authority](#create-the-certification-authority)
-		- [Register user `orderer`](#register-user-orderer)
-		- [Deploy orderer](#deploy-orderer)
-	- [6. Create a channel](#6-create-a-channel)
-		- [Register and enrolling OrdererMSP identity](#register-and-enrolling-orderermsp-identity)
-		- [Register and enrolling Org1MSP identity](#register-and-enrolling-org1msp-identity)
-		- [Create main channel](#create-main-channel)
-	- [7.1 Join peers from Org1 to the channel](#71-join-peers-from-org1-to-the-channel)
-	- [7.2 Join peers from Org2 to the channel](#72-join-peers-from-org2-to-the-channel)
-		- [Register and enrolling Org1MSP identity](#register-and-enrolling-org1msp-identity-1)
-	- [8. Install a chaincode](#8-install-a-chaincode)
-		- [Prepare connection string for a peer](#prepare-connection-string-for-a-peer)
-		- [Fetch the connection string from the Kubernetes secret](#fetch-the-connection-string-from-the-kubernetes-secret)
-		- [Install chaincode](#install-chaincode)
-		- [Check if the chaincode is installed](#check-if-the-chaincode-is-installed)
-	- [9. Deploy chaincode container on cluster](#9-deploy-chaincode-container-on-cluster)
-	- [10. Approve chaincode](#10-approve-chaincode)
-	- [11. Commit chaincode](#11-commit-chaincode)
-	- [12. Invoke a transaction on the channel](#12-invoke-a-transaction-on-the-channel)
-		- [Invoke a transaction on the channel](#invoke-a-transaction-on-the-channel)
-	- [13. Query assets in the channel](#13-query-assets-in-the-channel)
+  - [1. Create kubernetes cluster](#1-create-kubernetes-cluster)
+    - [Using K3D](#using-k3d)
+    - [Using KinD](#using-kind)
+  - [2. Install and configure Istio](#2-install-and-configure-istio)
+    - [Configure Internal DNS](#configure-internal-dns)
+  - [3. Install Hyperledger Fabric operator](#3-install-hyperledger-fabric-operator)
+    - [Install the Kubectl plugin](#install-the-kubectl-plugin)
+  - [4.1 Deploy the first organization organization](#41-deploy-the-first-organization-organization)
+    - [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm)
+    - [Deploy a certificate authority](#deploy-a-certificate-authority)
+    - [Deploy a peer](#deploy-a-peer)
+  - [4.2 Deploy a second peer organization](#42-deploy-a-second-peer-organization)
+    - [Environment Variables for AMD and ARM](#environment-variables-for-amd-and-arm-1)
+    - [Deploy a certificate authority](#deploy-a-certificate-authority-1)
+    - [Deploy a peer](#deploy-a-peer-1)
+  - [5. Deploy an orderer organization](#5-deploy-an-orderer-organization)
+    - [Create the certification authority](#create-the-certification-authority)
+    - [Register user `orderer`](#register-user-orderer)
+    - [Deploy orderer](#deploy-orderer)
+  - [6. Create a channel](#6-create-a-channel)
+    - [Register and enrolling OrdererMSP identity](#register-and-enrolling-orderermsp-identity)
+    - [Register and enrolling Org1MSP identity](#register-and-enrolling-org1msp-identity)
+    - [Create main channel](#create-main-channel)
+  - [7.1 Join peers from Org1 to the channel](#71-join-peers-from-org1-to-the-channel)
+  - [7.2 Join peers from Org2 to the channel](#72-join-peers-from-org2-to-the-channel)
+    - [Register and enrolling Org2MSP identity](#register-and-enrolling-org2msp-identity)
+  - [8. Install a chaincode](#8-install-a-chaincode)
+    - [Prepare connection string for a peer](#prepare-connection-string-for-a-peer)
+    - [Fetch the connection string from the Kubernetes secret](#fetch-the-connection-string-from-the-kubernetes-secret)
+    - [Install chaincode](#install-chaincode)
+    - [Check if the chaincode is installed](#check-if-the-chaincode-is-installed)
+  - [9. Deploy chaincode container on cluster](#9-deploy-chaincode-container-on-cluster)
+  - [10. Approve chaincode](#10-approve-chaincode)
+  - [11. Commit chaincode](#11-commit-chaincode)
+  - [12. Invoke a transaction on the channel](#12-invoke-a-transaction-on-the-channel)
+    - [Invoke a transaction on the channel](#invoke-a-transaction-on-the-channel)
+  - [13. Query assets in the channel](#13-query-assets-in-the-channel)
 - [13.1 Create an asset](#131-create-an-asset)
 - [13.2 Query the asset](#132-query-the-asset)
-	- [14. Completion](#14-completion)
-	- [Cleanup the environment](#cleanup-the-environment)
+  - [14. Completion](#14-completion)
+  - [Cleanup the environment](#cleanup-the-environment)
 
 In order to follow the workshop, you have two options, follow the Loom video or follow the steps below.
 
@@ -172,6 +172,7 @@ EOF
 This needs to be applied every time you restart the machine.
 
 ```bash
+
 kubectl apply -f - <<EOF
 kind: ConfigMap
 apiVersion: v1
@@ -413,6 +414,8 @@ kubectl hlf ordnode create --image=$ORDERER_IMAGE --version=$ORDERER_VERSION \
     --enroll-pw=ordererpw --capacity=2Gi --name=ord-node2 --ca-name=ord-ca.default \
     --hosts=orderer1-ord.localho.st --admin-hosts=admin-orderer1-ord.localho.st --istio-port=443
 
+# admin host = channel participation API
+
 kubectl hlf ordnode create --image=$ORDERER_IMAGE --version=$ORDERER_VERSION \
     --storage-class=$STORAGE_CLASS --enroll-id=orderer --mspid=OrdererMSP \
     --enroll-pw=ordererpw --capacity=2Gi --name=ord-node3 --ca-name=ord-ca.default \
@@ -520,6 +523,9 @@ spec:
     - mspID: Org1MSP
       caName: "org1-ca"
       caNamespace: "default"
+    - mspID: Org2MSP
+      caName: "org2-ca"
+      caNamespace: "default"
   identities:
     OrdererMSP:
       secretKey: user.yaml
@@ -612,7 +618,7 @@ EOF
 
 ## 7.2 Join peers from Org2 to the channel
 
-### Register and enrolling Org1MSP identity
+### Register and enrolling Org2MSP identity
 
 Run this step only if Org2MSP is added to the channel `demo`
 
@@ -791,11 +797,11 @@ kubectl hlf externalchaincode sync --image=kfsoftware/chaincode-external:latest 
 To approve the chaincode definition for org1, run the following command:
 
 ```bash
-export SEQUENCE=3
+export SEQUENCE=1
 export VERSION="1.0"
-export ENDORSEMENT_POLICY="OR('Org1MSP.member')"
+# export ENDORSEMENT_POLICY="OR('Org1MSP.member')"
 # if org2 is installed
-# export ENDORSEMENT_POLICY="OR('Org1MSP.member', 'Org2MSP.member')"
+export ENDORSEMENT_POLICY="OR('Org1MSP.member', 'Org2MSP.member')"
 
 kubectl hlf chaincode approveformyorg --config=org1.yaml --user=org1-admin-default --peer=org1-peer0.default \
     --package-id=$PACKAGE_ID \
