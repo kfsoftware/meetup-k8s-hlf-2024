@@ -552,21 +552,21 @@ spec:
           port: 7053
       mspID: OrdererMSP
       ordererEndpoints:
-        - ord-node1:7050
-        - ord-node2:7050
-        - ord-node3:7050
+        - orderer0-ord.localho.st:443
+        - orderer1-ord.localho.st:443
+        - orderer2-ord.localho.st:443
       orderersToJoin: []
   orderers:
-    - host: ord-node1
-      port: 7050
+    - host: orderer0-ord.localho.st
+      port: 443
       tlsCert: |-
 ${ORDERER0_TLS_CERT}
-    - host: ord-node2
-      port: 7050
+    - host: orderer0-ord.localho.st
+      port: 443
       tlsCert: |-
 ${ORDERER1_TLS_CERT}
-    - host: ord-node3
-      port: 7050
+    - host: orderer0-ord.localho.st
+      port: 443
       tlsCert: |-
 ${ORDERER2_TLS_CERT}
 
